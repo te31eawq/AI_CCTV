@@ -1,4 +1,4 @@
-## lane_detect_addition_3.py를 실행시
+## final_project/lane_detect_addition_3.py를 실행시
 
 
 <p align = center>
