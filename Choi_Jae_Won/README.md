@@ -1,7 +1,7 @@
 # 목차
-### 1. [차선 분리](#차선-감지)
-### 2. [사고감지](#deepsort)
-### 3. [터틀봇 사고감지](#turtlebot3_deepsort_client_2)
+### 1. [차선 분리](#차선-감지) | 2025.01.23
+### 2. [사고감지](#deepsort) | 2025.01.24
+### 3. [터틀봇 사고감지](#turtlebot3_deepsort_client_2) | 2025.01.27
 
 
 ---
@@ -63,3 +63,9 @@ final_project/lane_detect_addition_3.py를 실행시
 </p>
 
 ---
+
+### turtlebot3_deepsort_lane_client
+
+<p align = center>
+<img src = "./images/deepsort_lane_turtlebot.png", width = 500>
+</p>
