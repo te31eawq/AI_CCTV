@@ -1,5 +1,5 @@
 # 목차
-### 1. [차선 분리](#final_projectlane_detect_addition_3py를-실행시)
+### 1. [차선 분리](#차선-감지)
 ### 2. [사고감지](#deepsort)
 
 
@@ -7,7 +7,9 @@
 ---
 
 
-### final_project/lane_detect_addition_3.py를 실행시
+### 차선 감지
+
+final_project/lane_detect_addition_3.py를 실행시
 
 
 <p align = center>
