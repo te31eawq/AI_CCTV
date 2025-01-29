@@ -8,8 +8,8 @@ import socket
 import threading
 
 # 비디오 캡쳐 및 첫 번째 프레임 가져오기
-cap = cv2.VideoCapture("./detectfile.mp4")
-# cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture("./detectfile.mp4")
+cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("Error: Could not open video file")
     exit()

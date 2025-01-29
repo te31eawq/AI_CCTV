@@ -10,7 +10,7 @@ from lane_detection import lane_detection  # lane_detection 모듈 불러오기
 image_path = "image/turtlebot_lane.jpg"
 
 # YOLO 모델 로딩
-model = YOLO("best.pt")
+model = YOLO("./best.pt")
 
 # 클래스 이름 설정 (차량만)
 classNames = ["vehicle"]
