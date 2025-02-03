@@ -14,13 +14,13 @@ def lane_detection(image):
 
 
     # 흰색 범위 넓히기
-    lower_white = np.array([0, 0, 180])  # 채도 낮고 명도 높은 범위
-    upper_white = np.array([180, 40, 255])  # 채도는 조금 더 유연하게, 명도 범위 넓힘
+    lower_white = np.array([0, 0, 196])  # 채도 낮고 명도 높은 범위
+    upper_white = np.array([180, 255, 255])  # 채도는 조금 더 유연하게, 명도 범위 넓힘
 
 
     # 연한 초록색 범위
-    lower_green = np.array([40, 40, 40])  # 낮은 채도와 명도
-    upper_green = np.array([90, 200, 200])  # 높은 색상 범위
+    lower_green = np.array([42, 59, 64])  # 낮은 채도와 명도
+    upper_green = np.array([96, 255, 255])  # 높은 색상 범위
 
 
     # 마스크 생성

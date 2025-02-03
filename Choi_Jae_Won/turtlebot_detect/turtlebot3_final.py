@@ -7,8 +7,8 @@ import cvzone
 import math
 from sort import Sort
 import threading
-from lane_detection import lane_detection  # lane_detection 모듈 불러오기
-from socket_manager import SocketManager  # socket_manager 모듈 불러오기
+from lane_detection2 import lane_detection  # lane_detection 모듈 불러오기
+from socket_manager2 import SocketManager  # socket_manager 모듈 불러오기
 
 # 서버 IP 주소와 포트 정의
 SERVER_IP = "10.10.14.28"  # 예시: 로컬호스트
@@ -145,11 +145,13 @@ def video_thread(socket_manager):
         tracked_objects = tracker.update(detections)
 
         # 차선 감지
-        lane_image, yellow_points, white_points, blue_points = lane_detection(img)
+        lane_image, yellow_points, white_points, green_points = lane_detection(img)
         
         # yellow_points가 비어있는 경우 기본값 설정
         if not yellow_points:
             yellow_points = [[(0, frame_height), (frame_width, 0)]]
+
+        print(green_points)
 
         if len(yellow_points[0]) == 2:  # yellow_points의 첫 번째 리스트에서 두 점을 확인
             x1, y1 = yellow_points[0][0]

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import math
 
-image = cv2.imread('image/testlane4.jpg')
+image = cv2.imread('image/turtlebot_speed2.jpg')
 if image is None:
     print("이미지를 찾을 수 없습니다.")
     exit()
@@ -25,8 +25,11 @@ upper_yellow = np.array([35, 255, 255])
 lower_white = np.array([0, 0, 180])
 upper_white = np.array([180, 30, 255])
 
-lower_blue = np.array([85, 50, 150])   
-upper_blue = np.array([105, 255, 255]) 
+# lower_blue = np.array([85, 50, 150])   
+# upper_blue = np.array([105, 255, 255]) 
+
+lower_blue = np.array([35, 50, 50])   
+upper_blue = np.array([85, 255, 255])
 
 # 마스크 생성
 yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
