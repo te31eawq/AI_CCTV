@@ -80,3 +80,20 @@ Accident@0@1
 Accident@1@0
 Accident@1@1
 ```
+
+## 2025-02-03 update
+
+### edge_detection.py
+
+색 영역 추출용
+
+
+### turtlebot_final_speed.py
+```python
+lane_detection2.py 사용 # opencv 차선 추출
+socket_manager.py 사용 # Socket TCP/IP 서버 통신용
+```
+
+- 현재 차선을 지날 때 마다 차량마다 속도를 측정
+- 5초이내에 초록색 차선이 업데이트 되지 않는다면 그 구간에서 사고가 났다고 판단
+- **Accident@구간번호**를 서버로 보내도록 설정
