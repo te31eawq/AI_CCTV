@@ -115,6 +115,8 @@ class KalmanBoxTracker(object):
     self.time_since_update = 0
     self.id = KalmanBoxTracker.count
     KalmanBoxTracker.count += 1
+    if KalmanBoxTracker.count > 30:
+      KalmanBoxTracker.count = 0 
     self.history = []
     self.hits = 0
     self.hit_streak = 0

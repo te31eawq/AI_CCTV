@@ -50,25 +50,88 @@ accident_info = {}  # {id: {'last_time': <time>, 'last_line': <line_index>, 'sta
 start_time = time.time()
 lane_lines = None  # 초기에는 lane_lines를 None으로 설정하여 초기화
 
-def draw_bounding_box_smoothly(frame, x1, y1, x2, y2, color, alpha=0.6):
-    """
-    상자를 그릴 때 투명도(alpha)를 적용하여 부드럽게 보이도록 함.
-    frame: 이미지
-    x1, y1, x2, y2: 상자의 좌표
-    color: 상자 색상 (BGR)
-    alpha: 투명도 (0~1 사이 값, 1은 완전 불투명, 0은 완전 투명)
-    """
-    overlay = frame.copy()  # 원본 이미지를 복사해서 겹칠 예정
-    cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)  # 사각형을 복사본에 그린다.
-    cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)  # 원본 이미지와 복사본을 합성하여 부드러운 효과
+# 선분을 연장하여 화면 끝까지 그리기
+def extend_line_to_screen(line, frame_width, frame_height):
+    (x1, y1), (x2, y2) = line
+    # 기울기와 y절편 구하기
+    if x2 != x1:
+        m, b = get_line_equation((x1, y1), (x2, y2))
+        
+        # y = mx + b에서 x에 대해 해를 구해 화면 끝까지 연장
+        x_start = 0  # x1
+        y_start = m * x_start + b if m != float('inf') else y1
+        
+        x_end = frame_width  # x2
+        y_end = m * x_end + b if m != float('inf') else y2
+        
+        # 화면 크기에 맞게 범위 체크 (y가 화면 범위를 벗어나면 y값을 조정)
+        if y_start < 0:
+            y_start = 0
+        elif y_start > frame_height:
+            y_start = frame_height
+            
+        if y_end < 0:
+            y_end = 0
+        elif y_end > frame_height:
+            y_end = frame_height
+        
+        return ((x_start, y_start), (x_end, y_end))
+    else:
+        # 수직선일 경우
+        return ((x1, 0), (x1, frame_height))
 
+def extend_line_to_intersection(line, white_points, frame_width, frame_height):
+    """
+    초록색 선분(line)이 white_points 배열의 첫 번째와 마지막 선분과 교차하는 지점까지만 그리도록 수정된 함수
+    """
+    if len(white_points) < 2:  # white_points가 2개 미만일 경우 교차점 계산 불가
+        return extend_line_to_screen(line, frame_width, frame_height)  # 그냥 화면 끝까지 연장
+    
+    (x1, y1), (x2, y2) = line
+    
+    # 첫 번째와 마지막 선분만 사용
+    first_white_line = white_points[0]
+    last_white_line = white_points[-1]
 
-def get_line_index_based_on_position(cy, lane_lines):
-    for i, points in enumerate(lane_lines):
-        y1, y2 = points[0][1], points[1][1]
-        if y1 <= cy <= y2:  # cy가 선분의 y범위 내에 있으면 해당 선분을 선택
-            return i  # 선분의 번호를 반환
-    return -1  # 해당하는 선분이 없으면 -1 반환
+    # 첫 번째와 마지막 선분과 교차점 계산
+    intersection_first = get_intersection(line, first_white_line)
+    intersection_last = get_intersection(line, last_white_line)
+    
+    if intersection_first and intersection_last:
+        # 두 교차점을 계산한 후 선분을 그립니다
+        x_int_first, y_int_first = intersection_first
+        x_int_last, y_int_last = intersection_last
+        
+        # 교차점이 두 개 존재하면, 그 사이를 그리도록
+        return ((x_int_first, y_int_first), (x_int_last, y_int_last))
+    
+    # 교차점이 없으면, 원래대로 화면 끝까지 연장
+    return extend_line_to_screen(line, frame_width, frame_height)
+
+def get_intersection(line1, line2):
+    (x1, y1), (x2, y2) = line1
+    (x3, y3), (x4, y4) = line2
+
+    # 기울기와 y절편 계산
+    m1, b1 = get_line_equation((x1, y1), (x2, y2))
+    m2, b2 = get_line_equation((x3, y3), (x4, y4))
+
+    # 교차점 계산 (두 직선의 기울기가 같으면 교차점이 없으므로 무시)
+    if m1 != m2:
+        # 기울기 m1, m2가 다르면 교차점 계산
+        if m1 != float('inf') and m2 != float('inf'):
+            x_int = (b2 - b1) / (m1 - m2)
+            y_int = m1 * x_int + b1
+        elif m1 == float('inf'):  # 첫 번째 직선이 수직선
+            x_int = x1
+            y_int = m2 * x_int + b2
+        elif m2 == float('inf'):  # 두 번째 직선이 수직선
+            x_int = x3
+            y_int = m1 * x_int + b1
+
+        return (int(x_int), int(y_int))
+    else:
+        return None  # 교차점이 없으면 None
 
 def get_line_equation(p1, p2):
     """두 점 p1, p2를 통해 직선 방정식 y = mx + b 구하기"""
@@ -88,7 +151,7 @@ def is_crossing_line(vehicle_center, m, b):
     else:
         return y >= m * x + b - 10 and y <= m * x + b + 10  # 직선의 범위 내에서만 교차로 간주
 
-def filter_similar_lines(green_points, threshold=50):
+def filter_similar_lines(green_points, threshold=100):
     """
     y값이 비슷한 선분들을 필터링하여 하나만 남기기
     threshold는 y값의 차이가 이 값 이하인 선분을 비슷하다고 판단하여 제외한다.
@@ -125,8 +188,6 @@ accident_vehicle_ids = []
 
 def video_thread(socket_manager):
     global tracked_vehicles, accident_info, lane_lines, accident_sent, accident_vehicle_ids
-    last_vehicle_info = {}  # {vehicle_id: {'last_position': (cx, cy), 'last_time': <time>, 'last_line': <line_index>}}
-    
     while True:
         success, img = cap.read()
         if not success:
@@ -145,7 +206,7 @@ def video_thread(socket_manager):
                 cls = int(box.cls[0])
 
                 # 차량만 탐지
-                if cls < len(classNames) and classNames[cls] == 'vehicle' and conf > 0.6:
+                if cls < len(classNames) and classNames[cls] == 'vehicle' and conf > 0.4:
                     currentarray = np.array([x1, y1, x2, y2, conf])
                     detections = np.vstack((detections, currentarray))
 
@@ -156,20 +217,37 @@ def video_thread(socket_manager):
         if time.time() - start_time <= 2:
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
             green_points = filter_similar_lines(green_points)
+            white_points = filter_similar_lines(white_points)
             green_points = sorted(green_points, key=lambda points: (points[0][1] + points[1][1]) // 2)
+            white_points = sorted(white_points, key=lambda points: (points[0][1] + points[1][1]))
             lane_lines = green_points
         else:
             lane_image = img.copy()
             green_points = lane_lines
 
-        # 선분 그리기
+        # 교차점 찾기
+        if len(white_points) > 1:
+            first_white_line = white_points[0]
+            last_white_line = white_points[-1]
+            intersection = get_intersection(first_white_line, last_white_line)
+
+            if intersection:
+                x_int, y_int = intersection
+                # 초록색 선분을 첫 번째와 마지막 선분 사이에 그리기
+                green_points = [extend_line_to_intersection(line, white_points, frame_width, frame_height) for line in green_points]
+
+
+        # 초록색 선분 그리기 수정
         for i, points in enumerate(green_points):
-            cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
-            mid_point = ((points[0][0] + points[1][0]) // 2, (points[0][1] + points[1][1]) // 2)
-            cv2.putText(lane_image, f"Line {i + 1}", mid_point, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # 교차점을 찾기 위한 선분 연장
+            extended_line = extend_line_to_intersection(points, white_points, frame_width, frame_height)
+            cv2.line(lane_image, (int(extended_line[0][0]), int(extended_line[0][1])), (int(extended_line[1][0]), int(extended_line[1][1])), (0, 255, 0), 2)
+            mid_point = ((extended_line[0][0] + extended_line[1][0]) // 2, (extended_line[0][1] + extended_line[1][1]) // 2)
+            cv2.putText(lane_image, f"Line {i + 1}", (int(mid_point[0]), int(mid_point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
         for i, points in enumerate(white_points):
             cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 0, 0), 2)
+            cv2.putText(lane_image, f"Line {i + 1}", (int(points[0][0]), int(points[0][1])+40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
 
         line_equations = [get_line_equation(points[0], points[1]) for points in green_points]
 
@@ -182,26 +260,8 @@ def video_thread(socket_manager):
 
             id = int(id)
 
-            # 직선 방정식을 통한 차량의 위치 변화 추적
-            if id in last_vehicle_info:
-                last_position, last_time, last_line_index = last_vehicle_info[id]  # 언팩할 때 3개 값을 받도록 수정
-                last_cx, last_cy = last_position
-                current_time = time.time()
+            accident_detected = False
 
-                # 차량의 이동 거리 계산
-                time_diff = current_time - last_time
-                if time_diff > 0.05:  # 일정 시간이 지나면 속도 계산
-                    distance = np.sqrt((cx - last_cx) ** 2 + (cy - last_cy) ** 2)
-                    speed = (distance/200) / time_diff  # 속도 계산 (m/s)
-                    tracked_vehicles[id] = {'speed': speed}
-
-                # 차량의 현재 정보 업데이트
-                last_vehicle_info[id] = ((cx, cy), current_time, last_line_index)
-            else:
-                # 첫 번째 탐지된 차량
-                last_vehicle_info[id] = ((cx, cy), time.time(), -1)
-
-            # 차량이 차선을 넘어섰는지 확인
             for i, (m, b) in enumerate(line_equations):
                 if is_crossing_line(vehicle_center, m, b):
                     current_time = time.time()
@@ -211,7 +271,6 @@ def video_thread(socket_manager):
                         if last_line_index != i:
                             time_diff = current_time - last_time
                             if time_diff > 0.1:
-                                # 선분 간의 거리로 속도 계산
                                 distance = line_distance * abs(i - last_line_index)
                                 speed = distance / time_diff
                                 tracked_vehicles[id] = {'speed': speed}
@@ -228,14 +287,12 @@ def video_thread(socket_manager):
                         if id not in accident_info:
                             accident_info[id] = {'last_time': current_time, 'last_line': last_line_index, 'status': 'accident'}
                             socket_manager.send_msg(f'Accident@{last_line_index + 1}\n')  # 사고 발생 지점 전송
-                            accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
 
-            # 사용 예시
-            # 사고 차량이 있을 때
+            # 사고 차량 상태 표시
             if id in accident_info and accident_info[id]['status'] == 'accident':
-                draw_bounding_box_smoothly(lane_image, x1, y1, x2, y2, (0, 0, 255), alpha=0.6)  # 빨간색으로 사고 차량
+                cv2.rectangle(lane_image, (x1, y1), (x2, y2), (0, 0, 255), 2)  # 빨간색으로 사고 차량 표시
             else:
-                draw_bounding_box_smoothly(lane_image, x1, y1, x2, y2, (255, 0, 0), alpha=0.6)  # 파란색으로 정상 차량
+                cv2.rectangle(lane_image, (x1, y1), (x2, y2), (255, 0, 0), 2)  # 정상 차량은 파란색
 
             speed_text = f"ID: {id} "
             if id in tracked_vehicles:

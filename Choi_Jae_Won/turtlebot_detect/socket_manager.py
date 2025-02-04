@@ -1,5 +1,3 @@
-# socket_manager.py
-
 import socket
 import threading
 
@@ -15,30 +13,29 @@ class SocketManager:
         self.msg = ""
 
     def send_msg(self, message):
-        while True:
-            self.msg = message
-            if self.msg == "quit":
-                if self.sock:
-                    self.sock.sendall(b'quit\n')
-                    self.sock.close()
-                break
-            if not self.msg.startswith('['):
-                self.msg = f"[ALLMSG]{self.msg}"
+        """메시지를 보내는 메소드"""
+        self.msg = message
+        if self.msg == "quit":
+            if self.sock:
+                self.sock.sendall(b'quit\n')
+                self.sock.close()
+            return
 
-            try:
-                if self.sock:
-                    self.sock.sendall(self.msg.encode())
-                    break
-                else:
-                    print("Error: socket is None.")
-                    break
-            except:
-                print("Connection lost. Exiting...")
-                if self.sock:
-                    self.sock.close()
-                break
+        if not self.msg.startswith('['):
+            self.msg = f"[ALLMSG]{self.msg}"
+
+        try:
+            if self.sock:
+                self.sock.sendall(self.msg.encode())
+            else:
+                print("Error: socket is None.")
+        except Exception as e:
+            print(f"Connection lost. Exiting... {e}")
+            if self.sock:
+                self.sock.close()
 
     def recv_msg(self):
+        """서버에서 메시지를 받는 메소드"""
         while True:
             try:
                 data = self.sock.recv(NAME_SIZE + BUF_SIZE)
@@ -46,11 +43,12 @@ class SocketManager:
                     print("Server disconnected. Exiting...")
                     break
                 print(data.decode())
-            except:
-                print("Connection lost. Exiting...")
+            except Exception as e:
+                print(f"Connection lost. Exiting... {e}")
                 break
 
     def connect(self):
+        """서버와 연결하는 메소드"""
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
@@ -60,15 +58,15 @@ class SocketManager:
             login_msg = f"[{self.name}:PASSWD]"
             self.sock.sendall(login_msg.encode())
 
-            message_to_send = "Server Connected\n"  # 예시 메시지
+            message_to_send = "Server Connected\n"
             send_thread = threading.Thread(target=self.send_msg, args=(message_to_send,))
             recv_thread = threading.Thread(target=self.recv_msg)
 
             send_thread.start()
             recv_thread.start()
 
-            send_thread.join()
-            recv_thread.join()
+            send_thread.join()  # send_msg 스레드가 종료될 때까지 기다림
+            recv_thread.join()  # recv_msg 스레드가 종료될 때까지 기다림
 
         except Exception as e:
             print(f"Error: {e}")

@@ -12,20 +12,20 @@ def nothing(x):
 cv2.namedWindow("Trackbars")
 
 # 슬라이더 생성 (각각 Hue, Saturation, Value 범위)
-cv2.createTrackbar('LH', 'Trackbars', 0, 180, nothing)  # Lower Hue
-cv2.createTrackbar('UH', 'Trackbars', 180, 180, nothing)  # Upper Hue
+cv2.createTrackbar('LH', 'Trackbars', 0, 255, nothing)  # Lower Hue
+cv2.createTrackbar('UH', 'Trackbars', 0, 255, nothing)  # Upper Hue
 cv2.createTrackbar('LS', 'Trackbars', 0, 255, nothing)  # Lower Saturation
-cv2.createTrackbar('US', 'Trackbars', 255, 255, nothing)  # Upper Saturation
-cv2.createTrackbar('LV', 'Trackbars', 243, 255, nothing)  # Lower Value (높은 명도)
-cv2.createTrackbar('UV', 'Trackbars', 255, 255, nothing)  # Upper Value
+cv2.createTrackbar('US', 'Trackbars', 0, 255, nothing)  # Upper Saturation
+cv2.createTrackbar('LV', 'Trackbars', 0, 255, nothing)  # Lower Value (높은 명도)
+cv2.createTrackbar('UV', 'Trackbars', 0, 255, nothing)  # Upper Value
 
 # 초록색 범위 슬라이더 생성
-cv2.createTrackbar('Lower Green H', 'Trackbars', 35, 180, nothing)  # 초록색의 Hue
-cv2.createTrackbar('Upper Green H', 'Trackbars', 85, 180, nothing)  # 초록색의 Hue
-cv2.createTrackbar('Lower Green S', 'Trackbars', 40, 255, nothing)  # 초록색의 Saturation
-cv2.createTrackbar('Upper Green S', 'Trackbars', 255, 255, nothing)  # 초록색의 Saturation
-cv2.createTrackbar('Lower Green V', 'Trackbars', 40, 255, nothing)  # 초록색의 Value
-cv2.createTrackbar('Upper Green V', 'Trackbars', 255, 255, nothing)  # 초록색의 Value
+cv2.createTrackbar('Lower Green H', 'Trackbars', 0, 255, nothing)  # 초록색의 Hue
+cv2.createTrackbar('Upper Green H', 'Trackbars', 0, 255, nothing)  # 초록색의 Hue
+cv2.createTrackbar('Lower Green S', 'Trackbars', 0, 255, nothing)  # 초록색의 Saturation
+cv2.createTrackbar('Upper Green S', 'Trackbars', 0, 255, nothing)  # 초록색의 Saturation
+cv2.createTrackbar('Lower Green V', 'Trackbars', 0, 255, nothing)  # 초록색의 Value
+cv2.createTrackbar('Upper Green V', 'Trackbars', 0, 255, nothing)  # 초록색의 Value
 
 # 창 크기 변경
 cv2.resizeWindow("Trackbars", 800, 600)  # 창 크기를 800x600으로 설정
