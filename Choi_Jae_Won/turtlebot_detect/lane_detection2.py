@@ -15,8 +15,11 @@ def lane_detection(image):
     lower_white = np.array([0, 0, 239])  # 채도 낮고 명도 높은 범위
     upper_white = np.array([255, 13, 255])  # 채도는 조금 더 유연하게, 명도 범위 넓힘
 
-    lower_green = np.array([35, 17, 50])  # 낮은 채도와 명도
-    upper_green = np.array([85, 255, 255])  # 높은 색상 범위
+    # lower_green = np.array([43, 27, 201])
+    # upper_green = np.array([79, 255, 255]) 
+
+    lower_green = np.array([35, 25, 181])
+    upper_green = np.array([83, 255, 255]) 
 
     # 마스크 생성
     yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)

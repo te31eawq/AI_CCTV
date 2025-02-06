@@ -5,12 +5,13 @@ BUF_SIZE = 100
 NAME_SIZE = 20
 
 class SocketManager:
-    def __init__(self, server_ip, server_port, name="CCTV"):
+    def __init__(self, server_ip, server_port, name="CCTV1", callback=None):
         self.server_ip = server_ip
         self.server_port = server_port
         self.name = name
         self.sock = None
         self.msg = ""
+        self.callback = callback  # 콜백을 초기화 시 받아들임
 
     def send_msg(self, message):
         """메시지를 보내는 메소드"""
@@ -36,16 +37,20 @@ class SocketManager:
 
     def recv_msg(self):
         """서버에서 메시지를 받는 메소드"""
-        while True:
-            try:
-                data = self.sock.recv(NAME_SIZE + BUF_SIZE)
+        try:
+            while True:
+                data = self.sock.recv(BUF_SIZE)
                 if not data:  # 서버가 연결을 끊으면 data가 None이거나 길이가 0이 됨
-                    print("Server disconnected. Exiting...")
+                    print("Server disconnected.")
                     break
-                print(data.decode())
-            except Exception as e:
-                print(f"Connection lost. Exiting... {e}")
-                break
+                message = data.decode()
+                print(f"Received message: {message}")
+                if self.callback:
+                    self.callback(message)  # 메시지를 처리하는 콜백 함수 호출
+        except Exception as e:
+            print(f"Error while receiving message: {e}")
+        finally:
+            self.sock.close()
 
     def connect(self):
         """서버와 연결하는 메소드"""
@@ -74,3 +79,7 @@ class SocketManager:
                 self.sock.close()
         finally:
             print("Connection closed.")
+
+    def set_callback(self, callback):
+        """외부에서 콜백을 설정할 수 있도록 함"""
+        self.callback = callback
