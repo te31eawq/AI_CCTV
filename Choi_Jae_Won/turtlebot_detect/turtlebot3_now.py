@@ -20,7 +20,7 @@ if not cap.isOpened():
     exit()
 
 # YOLO 모델 로딩
-model = YOLO("./best4.pt")
+model = YOLO("./best.pt")
 
 # 클래스 이름 설정 (차량만)
 classNames = ["vehicle"]
@@ -243,9 +243,14 @@ def video_thread(socket_manager):
         # 차선 감지 및 차선 업데이트
         if time.time() - start_time <= 2:
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
-            green_points = filter_similar_lines(green_points)
-            green_points = sorted(green_points, key=lambda points: (points[0][1] + points[1][1]) // 2)
-            lane_lines = green_points
+
+            if green_points is None:
+                print("Error: No green points found")
+                green_points = []  # 빈 리스트로 대체하거나, 다른 기본값을 설정할 수 있습니다.
+            else:
+                green_points = filter_similar_lines(green_points)
+                green_points = sorted(green_points, key=lambda points: (points[0][1] + points[1][1]) // 2)
+                lane_lines = green_points
         else:
             lane_image = img.copy()
             green_points = lane_lines
