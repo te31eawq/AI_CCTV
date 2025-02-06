@@ -205,6 +205,8 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                 last_cross_info[id] = (idx, current_time)
 
 ## 구별용
+white_points = []
+green_points = []
 
 # 사고 발생 여부 추적을 위한 변수
 accident_sent = {}
@@ -241,12 +243,11 @@ def video_thread(socket_manager):
         tracked_objects = tracker.update(detections)
 
         # 차선 감지 및 차선 업데이트
-        if time.time() - start_time <= 2:
+        if time.time() - start_time <= 40:
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
-
             if green_points is None:
                 print("Error: No green points found")
-                green_points = []  # 빈 리스트로 대체하거나, 다른 기본값을 설정할 수 있습니다.
+                green_points = []
             else:
                 green_points = filter_similar_lines(green_points)
                 green_points = sorted(green_points, key=lambda points: (points[0][1] + points[1][1]) // 2)
@@ -254,15 +255,17 @@ def video_thread(socket_manager):
         else:
             lane_image = img.copy()
             green_points = lane_lines
-
+        if white_points is None:
+            white_points = []
         # 선분 그리기
-        for i, points in enumerate(green_points):
-            cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
-            mid_point = ((points[0][0] + points[1][0]) // 2, (points[0][1] + points[1][1]) // 2)
-            cv2.putText(lane_image, f"Line {i + 1}", mid_point, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-
-        for i, points in enumerate(white_points):
-            cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 0, 0), 2)
+        if green_points is not None:
+            for i, points in enumerate(green_points):
+                cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
+                mid_point = ((points[0][0] + points[1][0]) // 2, (points[0][1] + points[1][1]) // 2)
+                cv2.putText(lane_image, f"Line {i + 1}", mid_point, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+        if white_points is not None:
+            for i, points in enumerate(white_points):
+                cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 0, 0), 2)
 
         # 추가 선분들로 구성된 모든 선분 (속도 계산용)
         all_lines = update_lane_lines_and_middle_lines(green_points)
