@@ -20,7 +20,7 @@ if not cap.isOpened():
     exit()
 
 # YOLO 모델 로딩
-model = YOLO("./best.pt")
+model = YOLO("./best4.pt")
 
 # 클래스 이름 설정 (차량만)
 classNames = ["vehicle"]
@@ -88,7 +88,7 @@ def is_crossing_line(vehicle_center, m, b):
     else:
         return y >= m * x + b - 10 and y <= m * x + b + 10  # 직선의 범위 내에서만 교차로 간주
 
-def filter_similar_lines(green_points, threshold=40):
+def filter_similar_lines(green_points, threshold=60):
     """
     y값이 비슷한 선분들을 필터링하여 하나만 남기기
     threshold는 y값의 차이가 이 값 이하인 선분을 비슷하다고 판단하여 제외한다.
@@ -180,7 +180,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                             # 기존 선분만 반영
                             distance = line_distance * abs(i - last_line_index)
                             speed = (distance / time_diff) * distance_factor
-                            tracked_vehicles[id] = {'speed': speed}
+                            tracked_vehicles.setdefault(id, {}).update({'speed': speed})
                         last_cross_info[id] = (i, current_time)
                         last_cross_info2[id] = (i, current_time)
                 else:
@@ -199,12 +199,68 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                         # 중간 선분만 반영
                         distance = (line_distance / 4) * abs(idx - last_line_index)
                         speed = (distance / time_diff) * distance_factor
-                        tracked_vehicles[id] = {'speed': speed}
+                        tracked_vehicles.setdefault(id, {}).update({'speed': speed})
                     last_cross_info[id] = (idx, current_time)
             else:
                 last_cross_info[id] = (idx, current_time)
 
 ## 구별용
+
+def update_vehicle_name(id, vehicle_name, last_line_index2):
+    
+    """차량 이름을 갱신하는 함수"""
+    # 차량이 이미 이름을 가지고 있으면, 그 이름을 삭제하고 새로 갱신
+    for vehicle in vehicles_passed:
+        if vehicle['vehicle_name'] == vehicle_name:
+            vehicles_passed.remove(vehicle)  # 기존에 부여된 이름을 삭제
+
+    # 새로운 이름을 부여
+    vehicle_info = {'vehicle_name': vehicle_name, 'line_number': last_line_index2 + 1}
+    vehicles_passed.append(vehicle_info)
+
+    # tracked_vehicles에 이름 갱신
+    tracked_vehicles[id] = {'vehicle_name': vehicle_name}
+
+## 차별용
+
+def assign_lane(vehicle_center, white_points):
+    cx, cy = vehicle_center
+
+    for i in range(len(white_points) - 1):
+        # 현재 선분의 두 점
+        p1 = white_points[i][0]
+        p2 = white_points[i][1]
+
+        # 다음 선분의 두 점
+        p3 = white_points[i + 1][0]
+        p4 = white_points[i + 1][1]
+
+        # 첫 번째 직선 방정식 (p1, p2)
+        m1, b1 = get_line_equation(p1, p2)
+
+        # 두 번째 직선 방정식 (p3, p4)
+        m2, b2 = get_line_equation(p3, p4)
+
+        # 첫 번째 직선의 y값 구하기
+        y1_at_cx = m1 * cx + b1 if m1 != float('inf') else None  # 수직선일 경우 None
+        y2_at_cx = m2 * cx + b2 if m2 != float('inf') else None  # 수직선일 경우 None
+
+        # 두 직선 사이에 차량의 y값이 위치하는지 확인
+        if m1 != float('inf') and m2 != float('inf'):
+            # 두 직선의 y값 범위 내에 차량의 y가 있는지 확인
+            if min(y1_at_cx, y2_at_cx) <= cy <= max(y1_at_cx, y2_at_cx):
+                return i + 1  # 차선 번호는 1부터 시작
+        elif m1 == float('inf'):
+            # 첫 번째 직선이 수직선일 경우
+            if min(p1[1], p2[1]) <= cy <= max(p1[1], p2[1]):
+                return i + 1  # 차선 번호는 1부터 시작
+        elif m2 == float('inf'):
+            # 두 번째 직선이 수직선일 경우
+            if min(p3[1], p4[1]) <= cy <= max(p3[1], p4[1]):
+                return i + 1  # 차선 번호는 1부터 시작
+
+    return 0
+
 white_points = []
 green_points = []
 
@@ -212,8 +268,12 @@ green_points = []
 accident_sent = {}
 accident_vehicle_ids = []
 
-# 차량 이름을 저장할 배열 초기화
-vehicle_names_array = []
+# 차량 이름을 부여할 딕셔너리 (ID별로 차량 이름을 저장)
+vehicle_names = {}
+
+# 차량 이름을 부여할 배열 (ID별로 차량 이름을 저장)
+vehicles_passed = []
+
 def video_thread(socket_manager):
     global tracked_vehicles, accident_info, lane_lines, accident_sent, accident_vehicle_ids
 
@@ -243,7 +303,7 @@ def video_thread(socket_manager):
         tracked_objects = tracker.update(detections)
 
         # 차선 감지 및 차선 업데이트
-        if time.time() - start_time <= 40:
+        if time.time() - start_time <= 2:
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
             if green_points is None:
                 print("Error: No green points found")
@@ -284,6 +344,9 @@ def video_thread(socket_manager):
 
             id = int(id)
             current_time = time.time()
+
+            tracked_vehicles.setdefault(id, {}).update({'lane': assign_lane(vehicle_center, white_points)})
+
             calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equations, current_time, id, green_points)
 
             if id not in last_cross_info2:
@@ -308,37 +371,47 @@ def video_thread(socket_manager):
             else:
                 draw_bounding_box_smoothly(lane_image, x1, y1, x2, y2, (255, 0, 0), alpha=0.6)  # 파란색으로 정상 차량
 
-            # 차량 이름을 부여하거나 변경하는 부분에서
+            # 차량 이름을 부여하거나 변경하는 부분
             vehicle_name_find = None
             for vehicle in vehicles_passed:
                 if vehicle['line_number'] == last_line_index2 + 1:  # 선 번호는 1부터 시작하니 +1 해줌
                     vehicle_name_find = vehicle['vehicle_name']
                     break
 
-            # 차량 이름이 이미 부여되었으면, 해당 이름을 삭제하도록 처리
+            # 차량 이름을 업데이트하는 부분
             if vehicle_name_find:
-                # 기존에 부여된 이름을 가진 차량이 있으면, 그 이름을 삭제
+                # 기존에 부여된 이름을 가진 차량이 있으면, 그 이름을 변경
                 for vehicle in vehicles_passed:
                     if vehicle['vehicle_name'] == vehicle_name_find:
-                        vehicles_passed.remove(vehicle)  # 차량 이름을 삭제
-                
+                        tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
+                        # vehicle_names[id] = {vehicle_name_find}
+                        vehicles_passed.remove(vehicle)
+
                 # 새로운 차량 이름을 부여
                 tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
             else:
-                # 기본값 설정
-                tracked_vehicles.setdefault(id, {'vehicle_name': 'Unknown'})
+                # 'Unknown'으로 설정되기 전에, 먼저 tracked_vehicles에 해당 차량을 찾고 이름을 부여
+                if id not in tracked_vehicles:
+                    tracked_vehicles[id] = {'vehicle_name': 'Unknown'}
 
-
-            
-            # 차량 이름을 안전하게 가져오도록 수정
-            vehicle_name_text = tracked_vehicles.get(id, {}).get('vehicle_name', 'Unknown')
             speed_text = f"ID: {id} "
+
             if 'speed' in tracked_vehicles[id]:
                 speed = tracked_vehicles[id]['speed']
                 speed_text += f"Speed: {speed:.2f} m/s"
             else:
                 speed_text += "Speed: N/A"
+
+            if 'lane' in tracked_vehicles[id]:
+                lane = tracked_vehicles[id]['lane']
+                speed_text += f"Lane: {lane}"
+            else:
+                speed_text += f"Lane: ??"
+
             
+            # 차량 이름을 안전하게 가져오도록 수정
+            vehicle_name_text = tracked_vehicles.get(id, {}).get('vehicle_name', 'Unknown')
+
             cv2.putText(lane_image, speed_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv2.putText(lane_image, vehicle_name_text, (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
@@ -353,6 +426,12 @@ def video_thread(socket_manager):
                     accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
                 del accident_info[id]
 
+        # 이름이 부여된 차량이 사라졌을 때 배열에서 지우는 부분
+        for id in list(vehicle_names.keys()):
+            # 화면에서 차량이 사라졌고, 사고 메시지를 아직 보내지 않았다면
+            if id not in [int(obj[4]) for obj in tracked_objects]:
+                del vehicle_names[id]
+
         # 사고 차량이 모두 사라졌을 때 "OK" 보내기
         if not accident_info:  # 사고 차량이 모두 사라졌다면
             if not accident_sent.get('all_cleared', False):  # 이미 "OK"를 보냈으면 다시 보내지 않도록
@@ -366,6 +445,11 @@ def video_thread(socket_manager):
         key = cv2.waitKey(1) & 0xFF
         if key == ord('c'):
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
+
+            for i in range(len(white_points)):
+                white_points[i] = sorted(white_points[i], key=lambda point: point[0])
+            white_points = sorted(white_points, key=lambda points: (points[0][0], points[1][0]))
+
             green_points = filter_similar_lines(green_points)
             green_points = sorted(green_points, key=lambda points: (points[0][1] + points[1][1]) // 2)
             lane_lines = green_points
@@ -392,6 +476,12 @@ def handle_message(message):
 
         # 예시로 출력
         print(f"차량 이름: {vehicle_name}, 차선 번호: {line_number}")
+
+    elif 'GETLANE@' in message:
+        if white_points is not None:
+            for i, points in enumerate(white_points):
+                socket_manager.send_msg(f"LANE{i}@{points[0]}@{points[1]}")
+        
 
 def connect_thread(socket_manager):
     """서버에 연결하는 스레드"""

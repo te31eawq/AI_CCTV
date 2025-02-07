@@ -34,7 +34,7 @@ def lane_detection(image):
 
     def process_contours(contours, points_list, color):
         for contour in contours:
-            if cv2.contourArea(contour) > 80:
+            if cv2.contourArea(contour) > 100:
                 epsilon = 0.02 * cv2.arcLength(contour, True)
                 approx = cv2.approxPolyDP(contour, epsilon, True)
 
