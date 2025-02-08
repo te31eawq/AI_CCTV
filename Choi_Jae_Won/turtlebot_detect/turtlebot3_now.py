@@ -10,7 +10,7 @@ from lane_detection2 import lane_detection
 from socket_manager import SocketManager
 
 # 서버 IP 주소와 포트 정의
-SERVER_IP = "10.10.14.21"
+SERVER_IP = "10.10.14.28"
 SERVER_PORT = 5000
 
 # 비디오 캡쳐 및 첫 번째 프레임 가져오기
@@ -31,6 +31,9 @@ if not success:
     print("Error: Couldn't read the first frame of the video")
     exit()
 
+white_points = []
+green_points = []
+
 frame_height, frame_width = img.shape[:2]
 
 # SORT 추적기 초기화
@@ -38,6 +41,7 @@ tracker = Sort(max_age=100, min_hits=2, iou_threshold=0.3)
 
 # 차량 추적 정보 저장
 tracked_vehicles = {}
+old_tracked_vehicle = {}
 
 # 차량 정보를 저장할 리스트
 vehicles_passed = []
@@ -54,6 +58,12 @@ accident_info = {}  # {id: {'last_time': <time>, 'last_line': <line_index>, 'sta
 
 start_time = time.time()
 lane_lines = None  # 초기에는 lane_lines를 None으로 설정하여 초기화
+
+# 차선
+lane_counts = {}
+old_lane_counts = {}
+# 각 차량이 한 번만 카운트되도록 하기 위한 집합
+counted_vehicles = set()
 
 def draw_bounding_box_smoothly(frame, x1, y1, x2, y2, color, alpha=0.6):
     # float 형식으로 좌표 변경
@@ -164,7 +174,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
     cx, cy = vehicle_center
 
     # 거리를 보정하는 계수 계산 (가까운 차량일수록 보정 비율 증가)
-    distance_factor = 1 + ((frame_height - cy) / frame_height) ** 2  # 제곱 적용
+    # distance_factor = 1 + ((frame_height - cy) / frame_height) ** 2  # 제곱 적용
 
 
     """추가된 선분을 통과할 때 속도 계산"""
@@ -178,8 +188,8 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                         time_diff = current_time - last_time
                         if time_diff > 0.1:
                             # 기존 선분만 반영
-                            distance = line_distance * abs(i - last_line_index)
-                            speed = (distance / time_diff) * distance_factor
+                            distance = (line_distance / 8) * abs(i - last_line_index)
+                            speed = (distance / time_diff) # * distance_factor
                             tracked_vehicles.setdefault(id, {}).update({'speed': speed})
                         last_cross_info[id] = (i, current_time)
                         last_cross_info2[id] = (i, current_time)
@@ -198,7 +208,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                     if time_diff > 0.1:
                         # 중간 선분만 반영
                         distance = (line_distance / 4) * abs(idx - last_line_index)
-                        speed = (distance / time_diff) * distance_factor
+                        speed = (distance / time_diff) # * distance_factor
                         tracked_vehicles.setdefault(id, {}).update({'speed': speed})
                     last_cross_info[id] = (idx, current_time)
             else:
@@ -259,10 +269,7 @@ def assign_lane(vehicle_center, white_points):
             if min(p3[1], p4[1]) <= cy <= max(p3[1], p4[1]):
                 return i + 1  # 차선 번호는 1부터 시작
 
-    return 0
-
-white_points = []
-green_points = []
+    return -1
 
 # 사고 발생 여부 추적을 위한 변수
 accident_sent = {}
@@ -275,7 +282,7 @@ vehicle_names = {}
 vehicles_passed = []
 
 def video_thread(socket_manager):
-    global tracked_vehicles, accident_info, lane_lines, accident_sent, accident_vehicle_ids
+    global tracked_vehicles, accident_info, lane_lines, accident_sent, accident_vehicle_ids,white_points,old_lane_counts,old_tracked_vehicle
 
     while True:
         success, img = cap.read()
@@ -317,6 +324,7 @@ def video_thread(socket_manager):
             green_points = lane_lines
         if white_points is None:
             white_points = []
+
         # 선분 그리기
         if green_points is not None:
             for i, points in enumerate(green_points):
@@ -347,22 +355,30 @@ def video_thread(socket_manager):
 
             tracked_vehicles.setdefault(id, {}).update({'lane': assign_lane(vehicle_center, white_points)})
 
+            if tracked_vehicles[id]['lane']:
+                lane = tracked_vehicles[id]['lane']
+                if lane not in lane_counts:
+                    lane_counts[lane] = 0
+                lane_counts[lane] += 1
+            
             calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equations, current_time, id, green_points)
 
             if id not in last_cross_info2:
                 last_cross_info2[id] = (0, current_time)  # 초기값 설정
             last_line_index2, last_time2 = last_cross_info2[id]
+            tracked_vehicles.setdefault(id, {}).update({'last_line': last_line_index2+1})
 
             # 사고 발생 여부 추적
             if id in last_cross_info:
                 last_line_index, last_time = last_cross_info[id]
+                
             
-                if current_time - last_time > 4:
-                    if id not in accident_info:
-                        # 사고 판단은 기존 초록색 선분만 사용하도록 수정
-                        accident_info[id] = {'last_time': current_time, 'last_line': last_line_index2, 'status': 'accident'}
-                        socket_manager.send_msg(f'Accident@{last_line_index2 + 1}\n')  # 사고 발생 지점 전송
-                        accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
+                # if current_time - last_time > 4:
+                #     if id not in accident_info:
+                #         # 사고 판단은 기존 초록색 선분만 사용하도록 수정
+                #         accident_info[id] = {'last_time': current_time, 'last_line': last_line_index2, 'status': 'accident'}
+                #         socket_manager.send_msg(f'Accident@{last_line_index2 + 1}\n')  # 사고 발생 지점 전송
+                #         accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
 
             # 사용 예시
             # 사고 차량이 있을 때
@@ -383,16 +399,19 @@ def video_thread(socket_manager):
                 # 기존에 부여된 이름을 가진 차량이 있으면, 그 이름을 변경
                 for vehicle in vehicles_passed:
                     if vehicle['vehicle_name'] == vehicle_name_find:
-                        tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
+                        # tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
+                        tracked_vehicles.setdefault(id, {}).update({'vehicle_name': vehicle_name_find})
                         # vehicle_names[id] = {vehicle_name_find}
                         vehicles_passed.remove(vehicle)
 
                 # 새로운 차량 이름을 부여
-                tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
+                # tracked_vehicles[id] = {'vehicle_name': vehicle_name_find}
+                tracked_vehicles.setdefault(id, {}).update({'vehicle_name': vehicle_name_find})
             else:
                 # 'Unknown'으로 설정되기 전에, 먼저 tracked_vehicles에 해당 차량을 찾고 이름을 부여
                 if id not in tracked_vehicles:
-                    tracked_vehicles[id] = {'vehicle_name': 'Unknown'}
+                    #tracked_vehicles[id] = {'vehicle_name': 'Unknown'}
+                    tracked_vehicles.setdefault(id, {}).update({'vehicle_name': 'Unknown'})
 
             speed_text = f"ID: {id} "
 
@@ -404,44 +423,49 @@ def video_thread(socket_manager):
 
             if 'lane' in tracked_vehicles[id]:
                 lane = tracked_vehicles[id]['lane']
-                speed_text += f"Lane: {lane}"
+                speed_text += f" Lane: {lane}"
             else:
-                speed_text += f"Lane: ??"
+                speed_text += f" Lane: ??"
 
             
             # 차량 이름을 안전하게 가져오도록 수정
             vehicle_name_text = tracked_vehicles.get(id, {}).get('vehicle_name', 'Unknown')
+            # 'Unknown' 또는 None인 차량 이름이 있을 경우 메시지를 보내지 않도록 처리
+            if tracked_vehicles[id].get('vehicle_name') and tracked_vehicles[id].get('speed') and \
+            tracked_vehicles[id].get('lane') and tracked_vehicles[id].get('last_line'):
+                print(tracked_vehicles)
+                # 차량 정보가 달라졌을 경우에만 메시지 보내기
+                if id not in old_tracked_vehicle:
+                    old_tracked_vehicle[id] = {}
+                    # 차량 정보가 다르면 메시지 보내기
+                # 변경 사항 확인: 각 값들이 실제로 비교되는지 확인
 
+                for key in ['vehicle_name', 'speed', 'lane', 'last_line']:
+                    old_value = old_tracked_vehicle[id].get(key)
+                    new_value = tracked_vehicles[id].get(key)
+                    print(f"Comparing {key}: old = {old_value}, new = {new_value}")  # 디버깅용 출력
+
+                if any(old_tracked_vehicle[id].get(key) != tracked_vehicles[id].get(key) for key in ['vehicle_name', 'speed', 'lane', 'last_line']):
+                    for key in ['vehicle_name', 'speed', 'lane', 'last_line']:
+                        old_tracked_vehicle[id][key] = tracked_vehicles[id][key]
+                    socket_manager.send_msg(f'[JSH_QT]INFO@{tracked_vehicles[id]['vehicle_name']}@{tracked_vehicles[id]['speed']}@{tracked_vehicles[id]['lane']}@{tracked_vehicles[id]['last_line']}\n')
+
+                
             cv2.putText(lane_image, speed_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv2.putText(lane_image, vehicle_name_text, (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-        # 사고 차량이 사라졌을 때 배열에서 지우는 부분
-        for id in list(accident_info.keys()):
-            # 화면에서 차량이 사라졌고, 사고 메시지를 아직 보내지 않았다면
+        for id in list(tracked_vehicles.keys()):
             if id not in [int(obj[4]) for obj in tracked_objects]:
-                # 사고 차량의 마지막 구간에 대한 메시지를 전송
-                last_line_index = accident_info[id]['last_line']
-                if id not in accident_sent:  # 사고 메시지가 이미 전송되지 않았다면
-                    socket_manager.send_msg(f'Accident@{last_line_index+1}\n')
-                    accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
-                del accident_info[id]
-
-        # 이름이 부여된 차량이 사라졌을 때 배열에서 지우는 부분
-        for id in list(vehicle_names.keys()):
-            # 화면에서 차량이 사라졌고, 사고 메시지를 아직 보내지 않았다면
-            if id not in [int(obj[4]) for obj in tracked_objects]:
-                del vehicle_names[id]
-
-        # 사고 차량이 모두 사라졌을 때 "OK" 보내기
-        if not accident_info:  # 사고 차량이 모두 사라졌다면
-            if not accident_sent.get('all_cleared', False):  # 이미 "OK"를 보냈으면 다시 보내지 않도록
-                socket_manager.send_msg("OK\n")
-                accident_sent['all_cleared'] = True  # 한 번만 OK 메시지를 보냈다고 기록
-        else:
-            accident_sent['all_cleared'] = False  # 사고 차량이 남아있으면 다시 "OK"를 보낼 수 있도록
+                del tracked_vehicles[id]
 
         cv2.imshow("Image", lane_image)
-
+        
+        # lane_counts 변경 시 출력 (이전 값과 달라지고 lane_counts가 비어 있지 않을 때)
+        if old_lane_counts != lane_counts and lane_counts:
+            old_lane_counts = lane_counts.copy()  # 딕셔너리 복사하여 값 변경 추적
+            socket_manager.send_msg(f'[JSH_QT]COUNT@{lane_counts.get(1,0)}@{lane_counts.get(2,0)}@{lane_counts.get(-1,0)}\n')
+        for i in lane_counts:
+            lane_counts[i] = 0
         key = cv2.waitKey(1) & 0xFF
         if key == ord('c'):
             lane_image, yellow_points, white_points, green_points = lane_detection(img)
@@ -460,6 +484,7 @@ def video_thread(socket_manager):
     cv2.destroyAllWindows()
 
 def handle_message(message):
+    global white_points
     """
     서버에서 차량 메시지를 받아 처리하는 함수.
     메시지 예시: [차량이름]PASS@2 -> 차량이 '차량이름'이고 Line 2를 지난 경우
@@ -477,11 +502,34 @@ def handle_message(message):
         # 예시로 출력
         print(f"차량 이름: {vehicle_name}, 차선 번호: {line_number}")
 
-    elif 'GETLANE@' in message:
+    elif 'GETLANE' in message:
         if white_points is not None:
             for i, points in enumerate(white_points):
-                socket_manager.send_msg(f"LANE{i}@{points[0]}@{points[1]}")
+                time.sleep(0.1)
+                socket_manager.send_msg(f'[JSH_QT]LANE{i}@{points[0][0]}@{points[0][1]}@{points[1][0]}@{points[1][1]}\n')
+    
+    elif 'LANE' in message:
+        # Extract the lane number (which should be between 'LANE' and '@')
+        lane_index = int(message.split('LANE')[1].split('@')[0])  # Extract only the lane number
         
+        # Extract the coordinates after the '@' symbol and convert to integers
+        lane_points = list(map(int, message.split('@')[1:]))  # Convert all lane points to integers
+        socket_manager.send_msg(f'[JSH_QT]SORTED\n')
+        # Check if the lane_index exists in the white_points list and update accordingly
+        if len(white_points) <= lane_index:
+            for i in range(len(white_points)):
+                white_points[i] = sorted(white_points[i], key=lambda point: point[0])
+            white_points.append([(lane_points[0], lane_points[1]), (lane_points[2], lane_points[3])])
+            white_points = sorted(white_points, key=lambda points: (int(points[0][0]), int(points[1][0])))
+        else:
+            for i in range(len(white_points)):
+                white_points[i] = sorted(white_points[i], key=lambda point: point[0])
+            white_points[lane_index] = [(lane_points[0], lane_points[1]), (lane_points[2], lane_points[3])]
+            white_points = sorted(white_points, key=lambda points: (int(points[0][0]), int(points[1][0])))
+
+        for i, points in enumerate(white_points):
+            time.sleep(0.1)
+            socket_manager.send_msg(f'[JSH_QT]LANE{i}@{points[0][0]}@{points[0][1]}@{points[1][0]}@{points[1][1]}\n')
 
 def connect_thread(socket_manager):
     """서버에 연결하는 스레드"""
