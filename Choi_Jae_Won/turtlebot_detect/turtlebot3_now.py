@@ -371,14 +371,12 @@ def video_thread(socket_manager):
             # 사고 발생 여부 추적
             if id in last_cross_info:
                 last_line_index, last_time = last_cross_info[id]
-                
             
-                # if current_time - last_time > 4:
-                #     if id not in accident_info:
-                #         # 사고 판단은 기존 초록색 선분만 사용하도록 수정
-                #         accident_info[id] = {'last_time': current_time, 'last_line': last_line_index2, 'status': 'accident'}
-                #         socket_manager.send_msg(f'Accident@{last_line_index2 + 1}\n')  # 사고 발생 지점 전송
-                #         accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
+                if current_time - last_time > 4:
+                    if id not in accident_info:
+                        # 사고 판단은 기존 초록색 선분만 사용하도록 수정
+                        accident_info[id] = {'last_time': current_time, 'last_line': last_line_index2, 'status': 'accident'}
+                        tracked_vehicles.setdefault(id, {}).update({'speed': 0})
 
             # 사용 예시
             # 사고 차량이 있을 때
@@ -430,16 +428,22 @@ def video_thread(socket_manager):
             
             # 차량 이름을 안전하게 가져오도록 수정
             vehicle_name_text = tracked_vehicles.get(id, {}).get('vehicle_name', 'Unknown')
+
             # 'Unknown' 또는 None인 차량 이름이 있을 경우 메시지를 보내지 않도록 처리
+            if tracked_vehicles[id].get('speed') == 0:
+                if id not in accident_sent:
+                    accident_sent[id] = False
+                if not accident_sent[id]:
+                    socket_manager.send_msg(f'[ALLMSG]ACCIDENT@{tracked_vehicles[id]['lane']}@{tracked_vehicles[id]['last_line']}\n')
+                    accident_sent[id] = True
+
             if tracked_vehicles[id].get('vehicle_name') and tracked_vehicles[id].get('speed') and \
             tracked_vehicles[id].get('lane') and tracked_vehicles[id].get('last_line'):
                 print(tracked_vehicles)
                 # 차량 정보가 달라졌을 경우에만 메시지 보내기
                 if id not in old_tracked_vehicle:
                     old_tracked_vehicle[id] = {}
-                    # 차량 정보가 다르면 메시지 보내기
                 # 변경 사항 확인: 각 값들이 실제로 비교되는지 확인
-
                 for key in ['vehicle_name', 'speed', 'lane', 'last_line']:
                     old_value = old_tracked_vehicle[id].get(key)
                     new_value = tracked_vehicles[id].get(key)
@@ -454,9 +458,30 @@ def video_thread(socket_manager):
             cv2.putText(lane_image, speed_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv2.putText(lane_image, vehicle_name_text, (x1, y1 - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
+        ## 배열 지우기
+
         for id in list(tracked_vehicles.keys()):
             if id not in [int(obj[4]) for obj in tracked_objects]:
                 del tracked_vehicles[id]
+        
+        # 사고 차량이 사라졌을 때 배열에서 지우는 부분
+        for id in list(accident_info.keys()):
+            # 화면에서 차량이 사라졌고, 사고 메시지를 아직 보내지 않았다면
+            if id not in [int(obj[4]) for obj in tracked_objects]:
+                # 사고 차량의 마지막 구간에 대한 메시지를 전송
+                last_line_index = accident_info[id]['last_line']
+                if id not in accident_sent:  # 사고 메시지가 이미 전송되지 않았다면
+                    # socket_manager.send_msg(f'Accident@{last_line_index+1}\n')
+                    accident_sent[id] = True  # 사고 메시지를 전송했다고 기록
+                del accident_info[id]
+        
+        # 사고 차량이 모두 사라졌을 때 "OK" 보내기
+        if not accident_info:  # 사고 차량이 모두 사라졌다면
+            if not accident_sent.get('all_cleared', False):  # 이미 "OK"를 보냈으면 다시 보내지 않도록
+                # socket_manager.send_msg("OK\n")
+                accident_sent['all_cleared'] = True  # 한 번만 OK 메시지를 보냈다고 기록
+        else:
+            accident_sent['all_cleared'] = False  # 사고 차량이 남아있으면 다시 "OK"를 보낼 수 있도록
 
         cv2.imshow("Image", lane_image)
         
