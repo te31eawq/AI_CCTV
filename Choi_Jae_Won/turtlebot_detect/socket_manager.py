@@ -5,7 +5,7 @@ BUF_SIZE = 200
 NAME_SIZE = 20
 
 class SocketManager:
-    def __init__(self, server_ip, server_port, name="CCTV", callback=None):
+    def __init__(self, server_ip, server_port, name="CCTV1", callback=None):
         self.server_ip = server_ip
         self.server_port = server_port
         self.name = name

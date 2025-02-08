@@ -18,8 +18,14 @@ def lane_detection(image):
     # lower_green = np.array([43, 27, 201])
     # upper_green = np.array([79, 255, 255]) 
 
-    lower_green = np.array([35, 25, 181])
-    upper_green = np.array([83, 255, 255]) 
+    lower_green = np.array([35, 21, 201])
+    upper_green = np.array([85, 255, 255]) 
+
+    # lower_green = np.array([35, 25, 181])
+    # upper_green = np.array([83, 255, 255]) 
+
+    # lower_green = np.array([35, 13, 149])
+    # upper_green = np.array([90, 255, 255]) 
 
     # 마스크 생성
     yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
@@ -34,7 +40,7 @@ def lane_detection(image):
 
     def process_contours(contours, points_list, color):
         for contour in contours:
-            if cv2.contourArea(contour) > 100:
+            if cv2.contourArea(contour) > 200:
                 epsilon = 0.02 * cv2.arcLength(contour, True)
                 approx = cv2.approxPolyDP(contour, epsilon, True)
 

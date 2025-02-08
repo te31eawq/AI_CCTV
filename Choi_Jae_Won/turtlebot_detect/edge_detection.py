@@ -80,7 +80,9 @@ while True:
     # 'q'를 눌러서 종료
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
-
+        # 'q'를 눌러서 종료
+    if cv2.waitKey(1) & 0xFF == ord('f'):
+        cv2.imwrite('image.jpg', result)
 # 웹캠 해제 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
