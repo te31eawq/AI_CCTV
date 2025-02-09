@@ -12,20 +12,11 @@ def lane_detection(image):
     lower_yellow = np.array([15, 40, 40])  # 색상 범위, 채도 및 명도를 낮추어 연한 노란색
     upper_yellow = np.array([35, 200, 200])  # 채도와 명도를 조금 더 높여서 연한 색감 유지
 
-    lower_white = np.array([0, 0, 239])  # 채도 낮고 명도 높은 범위
-    upper_white = np.array([255, 13, 255])  # 채도는 조금 더 유연하게, 명도 범위 넓힘
+    lower_white = np.array([0, 0, 224])  # 채도 낮고 명도 높은 범위
+    upper_white = np.array([245, 21, 255])  # 채도는 조금 더 유연하게, 명도 범위 넓힘
 
-    # lower_green = np.array([43, 27, 201])
-    # upper_green = np.array([79, 255, 255]) 
-
-    lower_green = np.array([35, 21, 201])
-    upper_green = np.array([85, 255, 255]) 
-
-    # lower_green = np.array([35, 25, 181])
-    # upper_green = np.array([83, 255, 255]) 
-
-    # lower_green = np.array([35, 13, 149])
-    # upper_green = np.array([90, 255, 255]) 
+    lower_green = np.array([36, 21, 203])
+    upper_green = np.array([85, 255, 255])
 
     # 마스크 생성
     yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
@@ -40,7 +31,7 @@ def lane_detection(image):
 
     def process_contours(contours, points_list, color):
         for contour in contours:
-            if cv2.contourArea(contour) > 200:
+            if cv2.contourArea(contour) > 50:
                 epsilon = 0.02 * cv2.arcLength(contour, True)
                 approx = cv2.approxPolyDP(contour, epsilon, True)
 

@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 # 웹캠 열기
-cap = cv2.VideoCapture(0)
-
+# cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture('http://10.10.14.88:8080/?action=stream')
 # HSV 범위 슬라이더 값 설정
 def nothing(x):
     pass
