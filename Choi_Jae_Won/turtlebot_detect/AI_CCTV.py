@@ -215,7 +215,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                         time_diff = current_time - last_time
                         if time_diff > 0.1:
                             # 기존 선분만 반영
-                            distance = (line_distance / 2) * abs(i - last_line_index)
+                            distance = (line_distance / 2)
                             speed = (distance / time_diff) * 100 # * distance_factor
                             speed = int(speed)
                             tracked_vehicles.setdefault(id, {}).update({'speed': speed})
@@ -235,7 +235,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
                     time_diff = current_time - last_time
                     if time_diff > 0.1:
                         # 중간 선분만 반영
-                        distance = (line_distance / 2) * abs(idx - last_line_index)
+                        distance = (line_distance / 2)
                         speed = (distance / time_diff) * 100 # * distance_factor
                         speed = int(speed)
                         tracked_vehicles.setdefault(id, {}).update({'speed': speed})
@@ -283,13 +283,15 @@ def assign_lane(vehicle_center, white_points):
 
     return -1  # 차선이 1, 2가 아닌 경우
 
-
 # 사고 발생 여부 추적을 위한 변수
 accident_sent = {}
 accident_vehicle_ids = []
 
 # 저속 발생 용
 accident_low_sent = {}
+
+# 과속 발생 용
+accident_fast_sent = {}
 
 # 차량 이름을 부여할 딕셔너리 (ID별로 차량 이름을 저장)
 vehicle_names = {}
@@ -427,7 +429,7 @@ def video_thread(socket_manager):
 
             if 'speed' in tracked_vehicles[id]:
                 speed = tracked_vehicles[id]['speed']
-                speed_text += f"Speed: {speed:.2f} m/s"
+                speed_text += f"Speed: {speed:.2f} cm/s"
             else:
                 speed_text += "Speed: N/A"
                 tracked_vehicles.setdefault(id, {}).update({'last_line': 1})
@@ -456,7 +458,7 @@ def video_thread(socket_manager):
                         socket_manager.send_msg(f'ACCIDENT@{tracked_vehicle_lane}@{tracked_vehicle_lastline}\n')
                         accident_sent[id] = True
                         accident_low_sent[id] = True
-                elif tracked_vehicles[id].get('speed') and tracked_vehicles[id].get('speed') <= 30:
+                elif tracked_vehicles[id].get('speed') and tracked_vehicles[id].get('speed') <= 10:
                     if not caution_time.get(id):  # id별로 caution_time이 없으면 설정
                         caution_time[id] = current_time
                     if current_time - caution_time[id] > 4:  # 4초가 지났을 때
@@ -465,8 +467,14 @@ def video_thread(socket_manager):
                         if not accident_low_sent[id]:
                             socket_manager.send_msg(f'CAUTION@{tracked_vehicle_lane}@{tracked_vehicle_lastline}\n')
                             accident_low_sent[id] = True
-                elif tracked_vehicles[id].get('speed') and tracked_vehicles[id].get('speed') > 30:
-                    # 속도가 30 이상이면 알림을 초기화
+                elif tracked_vehicles[id].get('speed') and tracked_vehicles[id].get('speed') >= 20:
+                    if id not in accident_fast_sent:
+                        accident_fast_sent[id] = False
+                    if not accident_fast_sent[id]:
+                        socket_manager.send_msg(f'DANGER@{tracked_vehicle_lane}@{tracked_vehicle_lastline}\n')
+                        accident_fast_sent[id] = True 
+                elif tracked_vehicles[id].get('speed') and tracked_vehicles[id].get('speed') > 10:
+                    # 속도가 10 이상이면 알림을 초기화
                     if id in caution_time:
                         del caution_time[id]
                     if id in accident_low_sent:
