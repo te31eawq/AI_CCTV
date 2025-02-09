@@ -6,7 +6,6 @@ import math
 from sort import Sort
 import threading
 import time
-import torch
 
 from lane_detection2 import lane_detection
 from socket_manager import SocketManager
@@ -22,13 +21,7 @@ if not cap.isOpened():
     exit()
 
 # YOLO 모델 로딩
-model = YOLO("./best.pt")
-
-# CUDA로 모델을 이동
-if torch.cuda.is_available():
-    model.to("cuda")  # GPU로 모델을 이동
-else:
-    print("CUDA가 사용할 수 없습니다. CPU로 실행됩니다.")
+model = YOLO('./best4.pt')
 
 # 클래스 이름 설정 (차량만)
 classNames = ["vehicle"]
@@ -250,24 +243,7 @@ def calculate_speed_for_added_lines(vehicle_center, last_cross_info, line_equati
             else:
                 last_cross_info[id] = (idx, current_time)
 
-## 구별용
-
-def update_vehicle_name(id, vehicle_name, last_line_index2):
-    
-    """차량 이름을 갱신하는 함수"""
-    # 차량이 이미 이름을 가지고 있으면, 그 이름을 삭제하고 새로 갱신
-    for vehicle in vehicles_passed:
-        if vehicle['vehicle_name'] == vehicle_name:
-            vehicles_passed.remove(vehicle)  # 기존에 부여된 이름을 삭제
-
-    # 새로운 이름을 부여
-    vehicle_info = {'vehicle_name': vehicle_name, 'line_number': last_line_index2 + 1}
-    vehicles_passed.append(vehicle_info)
-
-    # tracked_vehicles에 이름 갱신
-    tracked_vehicles[id] = {'vehicle_name': vehicle_name}
-
-## 차별용
+## 차선 변경용
 
 def assign_lane(vehicle_center, white_points):
     cx, cy = vehicle_center
@@ -382,9 +358,9 @@ def video_thread(socket_manager):
         all_lines = update_lane_lines_and_middle_lines(green_points)
         line_equations = [get_line_equation(points[0], points[1]) for points in all_lines]
 
-        # 선분 그리기 (기존 + 추가 선분)
-        for i, points in enumerate(all_lines):
-                cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
+        # # 선분 그리기 (기존 + 추가 선분)
+        # for i, points in enumerate(all_lines):
+        #         cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
 
         # 사고 발생 여부 추적 (기존 선분만 사용)
         for obj in tracked_objects:
@@ -454,6 +430,7 @@ def video_thread(socket_manager):
                 speed_text += f"Speed: {speed:.2f} m/s"
             else:
                 speed_text += "Speed: N/A"
+                tracked_vehicles.setdefault(id, {}).update({'last_line': 1})
 
             if 'lane' in tracked_vehicles[id]:
                 lane = tracked_vehicles[id]['lane']
