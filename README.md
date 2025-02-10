@@ -81,7 +81,7 @@
     <img src = ./image/turtlebot_lane.jpg width = 300>
     </p>
 
-    - 차량이 초록색 선분을 지나갈 때마다 현실 시간과 거리(50cm) 이용하여 속도를 계산
+    - 차량이 초록색 선분을 지나갈 때마다 시간과 거리(50cm) 이용하여 속도를 계산
 
     <p align = center>
     <img src = ./image/turtlebot_speed.gif width = 300>

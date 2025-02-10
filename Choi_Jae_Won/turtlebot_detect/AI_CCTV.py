@@ -11,7 +11,7 @@ from lane_detection2 import lane_detection
 from socket_manager import SocketManager
 
 # 서버 IP 주소와 포트 정의
-SERVER_IP = "10.10.14.28"
+SERVER_IP = "10.10.14.21"
 SERVER_PORT = 5000
 
 # 비디오 캡쳐 및 첫 번째 프레임 가져오기
@@ -387,6 +387,9 @@ def video_thread(socket_manager):
             if id not in last_cross_info2:
                 last_cross_info2[id] = (0, current_time)  # 초기값 설정
             last_line_index2, last_time2 = last_cross_info2[id]
+            if last_line_index2+2 >= 5:
+                last_line_index2 = 2
+            
             tracked_vehicles.setdefault(id, {}).update({'last_line': last_line_index2+2})
 
             # 사고 발생 여부 추적
