@@ -69,9 +69,8 @@
     - 이를 전달 받아서 해당하는 차량에 고유 이름을 부여(CJW_LIN)
 
     <p align = center>
-    <img src="./image/turtlebot_lane.jpg" align="left" width="50%">
-    <img src="./image/turtlebot_name.jpg" align="right" width="50%">
-    <figcaption align="center"></figcaption>
+    <img src="./image/turtlebot_lane.jpg" width=300>
+    <img src="./image/turtlebot_name.jpg" width=300>
     </p>
 
 - ### 차량 속도 계산

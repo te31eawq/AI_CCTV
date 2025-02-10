@@ -11,7 +11,7 @@ from lane_detection2 import lane_detection
 from socket_manager import SocketManager
 
 # 서버 IP 주소와 포트 정의
-SERVER_IP = "10.10.14.21"
+SERVER_IP = "10.10.14.28"
 SERVER_PORT = 5000
 
 # 비디오 캡쳐 및 첫 번째 프레임 가져오기
