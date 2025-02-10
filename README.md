@@ -18,19 +18,19 @@ gantt
     axisFormat  %m-%d
 
     section 기획
-    Planning       :done,   p1, 2025-01-10, 2025-01-13
+    Planning       :done,   p1, 2025-01-10, 2025-01-14
 
     section 데이터 및 모델
     Data & Model   :active, d1, 2025-01-14, 2025-01-22
 
     section 시스템 개발
-    CCTV Dev       :       c1, 2025-01-23, 2025-01-29
-    Vehicle Dev    :       v1, 2025-01-30, 2025-02-03
-    Control Tower  :       ct1, 2025-02-04, 2025-02-07
+    CCTV Dev       :       c1, 2025-01-23, 2025-02-10
+    Tutlebot Dev   :       v1, 2025-02-03, 2025-02-06
+    관제 서버      :       ct1, 2025-01-13, 2025-02-09
 
     section 테스트 및 배포
     Testing & Opt  :       t1, 2025-02-08, 2025-02-10
-    Review & Deploy:       r1, 2025-02-11, 2025-02-11
+    Review & Deploy:       r1, 2025-02-10, 2025-02-11
 ```
 
 ## 개요
