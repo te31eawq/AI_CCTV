@@ -21,7 +21,7 @@ if not cap.isOpened():
     exit()
 
 # YOLO 모델 로딩
-model = YOLO('./best4.pt')
+model = YOLO('./best.pt')
 
 # 클래스 이름 설정 (차량만)
 classNames = ["vehicle"]
