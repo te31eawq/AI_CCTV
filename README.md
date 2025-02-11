@@ -129,3 +129,8 @@ gantt
 <p align = center>
 <img src = ./image/turtlebot_accident_after.jpg width = 300>
 </p>
+
+
+## 프로젝트 자료
+
+[프로젝트](https://docs.google.com/presentation/d/1UrHwjNC-UGZS-lsKIn6T3WxjbPKBYf80ObaYcnCyaD4/edit#slide=id.g803d9f7a28_0_10)
