@@ -360,9 +360,9 @@ def video_thread(socket_manager):
         all_lines = update_lane_lines_and_middle_lines(green_points)
         line_equations = [get_line_equation(points[0], points[1]) for points in all_lines]
 
-        # # 선분 그리기 (기존 + 추가 선분)
-        # for i, points in enumerate(all_lines):
-        #         cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
+        # 선분 그리기 (기존 + 추가 선분)
+        for i, points in enumerate(all_lines):
+                cv2.line(lane_image, tuple(points[0]), tuple(points[1]), (0, 255, 0), 2)
 
         # 사고 발생 여부 추적 (기존 선분만 사용)
         for obj in tracked_objects:
